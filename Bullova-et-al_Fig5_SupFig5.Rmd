@@ -1,0 +1,454 @@
+---
+title: "Bullova et al. Figure 5 and Supplementary Figure 5"
+author: "Jiacheng Zhu"
+date: "2024-12-12"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float: true
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(openxlsx)
+library(dplyr)
+library(Seurat)
+library(tidyverse)
+library(magrittr)
+library(SingleCellExperiment)
+library(SCopeLoomR)
+library(viridis)
+library(network)
+library(igraph)
+library(ggplot2)
+library(patchwork)
+library(ggrepel)
+library(extrafont)
+library(grid)
+library(gridExtra)
+library(gridGraphics)
+library(ComplexHeatmap)
+library(ggthemes)
+library(cowplot)
+library(stringr)
+library(cluster)
+library(mclust)
+library(reshape2)
+library(ggpubr)
+library(CellChat)
+library(sysfonts)
+library(showtext)
+library(extrafont)
+font_add('Arial', regular = '../../../../../Tools/Fonts/Arial.ttf')
+showtext_auto()
+loadfonts(device = "pdf")
+set.seed(1234)
+
+source("../../../../../Scripts/MyDotPlot.R")
+source("../../../../../Scripts/Specific_DEGs_Function.R")
+source("../../../../../Scripts/Compute_GO_KEGG.r")
+source("./Figure5I_Quick_Function.R")
+```
+
+## Load Data
+### Single-cell data
+```{r }
+set.seed(1234)
+
+# Load Data
+WT_Mouse <- readRDS("./01.2_main_E17andPN_WT_AddMeta_Annotated.RDS")
+
+WT_Mouse$NewCelltype <- ""
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 0)] <- "(0) E ADR Chromaffin"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 1)] <- "(1) PN NOR Chromaffin"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 2)] <- "(2) PN ADR Chromaffin"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 3)] <- "(3) Endothelial"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 4)] <- "(4) Macrophage"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 5)] <- "(5) E NOR Chromaffin"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 6)] <- "(6) E Glia|SCP"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 7)] <- "(7) Cortex ZG"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 8)] <- "(8) Cycling TH+"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 9)] <- "(9) Cortex X Zone"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 10)] <- "(10) E Neuroblast"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 11)] <- "(11) PN Sustentacular"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 12)] <- "(12) Cortex ZF"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 13)] <- "(13) Macrophage"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 14)] <- "(14) Cortex ZG"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 15)] <- "(15) Dendritic cell"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 16)] <- "(16) T cell"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 17)] <- "(17) NK cell"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 18)] <- "(18) Mesenchymal"
+WT_Mouse$NewCelltype[which(WT_Mouse$seurat_clusters == 19)] <- "(19) Dendritic cell"
+
+WT_Mouse$DetailedAge <- ""
+WT_Mouse$DetailedAge[which(WT_Mouse$wenyu_names %in%c ("E17nTAM_11_5", "E17nTAM_8_5"))] <- "Embryonic (E17)"
+WT_Mouse$DetailedAge[which(WT_Mouse$wenyu_names %in%c ("P5"))] <- "Postnatal (P5)"
+WT_Mouse$DetailedAge[which(WT_Mouse$wenyu_names %in%c ("P14"))] <- "Postnatal (P14)"
+WT_Mouse$DetailedAge[which(WT_Mouse$wenyu_names %in%c ("WT_AG_3m"))] <- "Postnatal (P90)"
+WT_Mouse$DetailedAge[which(WT_Mouse$wenyu_names %in%c ("AdultAG"))] <- "Postnatal (Aged)"
+WT_Mouse$DetailedAge <- factor(WT_Mouse$DetailedAge, levels = c("Embryonic (E17)", "Postnatal (P5)", "Postnatal (P14)", "Postnatal (P90)", "Postnatal (Aged)"))
+
+WT_Mouse$GrossAge <- ""
+WT_Mouse$GrossAge[which(WT_Mouse$wenyu_names %in%c ("E17nTAM_11_5", "E17nTAM_8_5"))] <- "Embryonic (E17)"
+WT_Mouse$GrossAge[which(WT_Mouse$wenyu_names %in%c ("P5", "P14", "WT_AG_3m", "AdultAG"))] <- "Postnatal"
+WT_Mouse$GrossAge <- factor(WT_Mouse$GrossAge, levels = c("Embryonic (E17)", "Postnatal"))
+
+NewCelltypes <- sort(unique(WT_Mouse$NewCelltype))
+NewCelltypesOrdered <- NewCelltypes[c(1,2,13:20,3:12)]
+
+WT_Mouse$NewCelltype <- factor(WT_Mouse$NewCelltype, levels = NewCelltypesOrdered)
+WT_Mouse$seurat_clusters <- factor(WT_Mouse$seurat_clusters, levels = c(0:19))
+
+Idents(WT_Mouse) <- 'NewCelltype'
+DefaultAssay(WT_Mouse) <- 'RNA'
+WT_Mouse
+```
+
+```{r }
+a <- DimPlot(WT_Mouse, reduction = "umap", group.by = "NewCelltype")
+pbuild <- ggplot2::ggplot_build(a)
+pdata <- pbuild$data[[1]]
+pdata <-  pdata[order(pdata$group), ]
+ucols <- unique(pdata$colour)
+names(ucols) <- levels(WT_Mouse$NewCelltype)
+ucols
+```
+
+### Cell-cell-communication All Cell types
+```{r fig.width=30, fig.height=7}
+CellChat_AgedAdult <- readRDS("./CellChat_CellCellCommunication/WT_Mouse_AllCellType_SpeAge/WT_Mouse_AgedAdult_AllCelltype_CCC.rds")
+CellChat_P90 <- readRDS("./CellChat_CellCellCommunication/WT_Mouse_AllCellType_SpeAge/WT_Mouse_3MonthAdult_AllCelltype_CCC.rds")
+CellChat_P14 <- readRDS("./CellChat_CellCellCommunication/WT_Mouse_AllCellType_SpeAge/WT_Mouse_PN_14D_AllCelltype_CCC.rds")
+CellChat_P5 <- readRDS("./CellChat_CellCellCommunication/WT_Mouse_AllCellType_SpeAge/WT_Mouse_PN_5D_AllCelltype_CCC.rds")
+CellChat_E17 <- readRDS("./CellChat_CellCellCommunication/WT_Mouse_AllCellType_SpeAge/WT_Mouse_E_17_AllCelltype_CCC.rds")
+```
+
+```{r }
+CellChat_AgedAdult@meta$NewCelltype <- as.character(WT_Mouse@meta.data[rownames(CellChat_AgedAdult@meta), "NewCelltype"])
+CellChat_AgedAdult <- setIdent(CellChat_AgedAdult, ident.use = "NewCelltype")
+CellChat_P90@meta$NewCelltype <- as.character(WT_Mouse@meta.data[rownames(CellChat_P90@meta), "NewCelltype"])
+CellChat_P90 <- setIdent(CellChat_P90, ident.use = "NewCelltype")
+CellChat_P14@meta$NewCelltype <- as.character(WT_Mouse@meta.data[rownames(CellChat_P14@meta), "NewCelltype"])
+CellChat_P14 <- setIdent(CellChat_P14, ident.use = "NewCelltype")
+CellChat_P5@meta$NewCelltype <- as.character(WT_Mouse@meta.data[rownames(CellChat_P5@meta), "NewCelltype"])
+CellChat_P5 <- setIdent(CellChat_P5, ident.use = "NewCelltype")
+CellChat_E17@meta$NewCelltype <- as.character(WT_Mouse@meta.data[rownames(CellChat_E17@meta), "NewCelltype"])
+CellChat_E17 <- setIdent(CellChat_E17, ident.use = "NewCelltype")
+```
+
+```{r fig.width=20, fig.height=5}
+CellChat_AgedAdult_WNT <- CellChat_AgedAdult
+CellChat_AgedAdult_WNT@LR$LRsig <- CellChat_AgedAdult@LR$LRsig[which(CellChat_AgedAdult@LR$LRsig$ligand == "Wnt6"),]
+
+CellChat_P90_WNT <- CellChat_P90
+CellChat_P90_WNT@LR$LRsig <- CellChat_P90@LR$LRsig[which(CellChat_P90@LR$LRsig$ligand == "Wnt6"),]
+
+CellChat_P14_WNT <- CellChat_P14
+CellChat_P14_WNT@LR$LRsig <- CellChat_P14@LR$LRsig[which(CellChat_P14@LR$LRsig$ligand == "Wnt6"),]
+
+CellChat_P5_WNT <- CellChat_P5
+CellChat_P5_WNT@LR$LRsig <- CellChat_P5@LR$LRsig[which(CellChat_P5@LR$LRsig$ligand == "Wnt6"),]
+
+CellChat_E17_WNT <- CellChat_E17
+CellChat_E17_WNT@LR$LRsig <- CellChat_E17@LR$LRsig[which(CellChat_E17@LR$LRsig$ligand == "Wnt6"),]
+```
+
+### Cell-cell-communication Medullary Cell types
+```{r }
+cellChat_Merged <- readRDS("./CellChat_CellCellCommunication/WT_Mouse_MedullaCell_SpeAge/WT_Mouse_Merged_AllAgeGroup_CCC.Rds")
+```
+
+
+## Figure 5 A
+```{r fig.width=10, fig.height=8}
+DimPlot(WT_Mouse, group.by='NewCelltype', reduction = 'umap', label = T, repel = T) + theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), axis.line = element_blank())
+```
+
+
+## Figure 5 B
+**Medullary Cell types**
+```{r fig.width=6, fig.height=7}
+WT_Mouse_Medulla <- subset(WT_Mouse, seurat_clusters %in% c(0, 1, 2, 5, 6, 8, 10, 11))
+Medulla_CellNames <- colnames(WT_Mouse_Medulla)[which((2 * WT_Mouse_Medulla@reductions$umap@cell.embeddings[,1] + WT_Mouse_Medulla@reductions$umap@cell.embeddings[,2]) > 0)]
+WT_Mouse_Medulla <- subset(WT_Mouse_Medulla, cells = Medulla_CellNames)
+
+DimPlot(WT_Mouse_Medulla, group.by='GrossAge', pt.size=0.4, reduction = 'umap', label = F, repel = T)
+```
+
+## Figure 5 C
+```{r }
+OutDir <- "./DEG_GO/"
+WT_Mouse_SpeDEGs <- SpecificDEG(WT_Mouse, Cluster = "NewCelltype", min.logfc = 0.5, p.adj = 0.05, slot = "data", save = T, return_res = T, outdir = OutDir, Prefix = "Whole_Data_All_Cluster")
+```
+
+```{r }
+Glia_DEGs <- FindMarkers(WT_Mouse, ident.1 = "(11) PN Sustentacular", ident.2 = "(6) E Glia|SCP", logfc.threshold = 0.5, group.by = "NewCelltype", only.pos = F)
+saveRDS(Glia_DEGs, "Glia_Compararsion_PN_vs_E17_DEGs.rds")
+
+head(Glia_DEGs)
+```
+
+```{r rows.print=20}
+# Define the pattern strings
+patterns <- c("^\\(11\\) PN Sustentacular", "^\\(6\\) E Glia\\|SCP")
+
+# Function to split specified columns and filter based on the patterns
+split_and_extract <- function(df, columns_to_split, patterns, columns_to_keep) {
+  # Initialize a copy of the dataframe to store results
+  df_extracted <- df[,columns_to_keep, drop = FALSE]
+  
+  # Only split the specified columns
+  for (col in columns_to_split) {
+    df_extracted[, col] <- sapply(df[[col]], function(col_value) {
+      # Split each column element based on "| " pattern
+      col_split <- strsplit(col_value, "\\| ")
+      
+      # Filter the values that match the patterns
+      filtered_values <- sapply(col_split, function(x) {
+        matched <- x[grepl(paste(patterns, collapse = "|"), x)]
+        if (length(matched) > 0) {
+          return(matched)
+        } else {
+          return(NA)  # Return NA if no match
+        }
+      })
+      filtered_values <- as.numeric(gsub(paste(paste0(patterns, ": "), collapse = "|"),"",filtered_values))
+      return(filtered_values) 
+    })
+  }
+  
+  return(df_extracted)
+}
+
+# Specify the columns you want to split
+columns_to_split <- c("others.pct.2", "others.pval", "others.padj", "others.log2FC")  # You can change this to your column names
+
+# Specify the columns you want to keep
+columns_to_keep <- c("gene", "cluster", "pct.1")  # You can change this to your column names
+
+Genes2Show <- c("Sox10", "Wwtr1", "Tnc", "Mpz", "Lmo4", "Mef2c", "Gpr17", "Mmp2", "Ngfr", "Sox5", "Ctnnb1", "Moxd1", "Hif3a", "Atp1a2", "Olfml2a", "Col28a1", "Aspa", "Notch1", "Heyl", "Sfrp5", "Sfrp1", "Wnt6", "Gfap", "Tgfb2", "Sema3c", "Adam11", "Fam19a5", "Sparc", "Hey2", "Rgmb")
+
+Glia_SepDEGs <- WT_Mouse_SpeDEGs[which(WT_Mouse_SpeDEGs$cluster %in% c("(11) PN Sustentacular", "(6) E Glia|SCP")),c("gene", "cluster", "pct.1", "others.pct.2", "others.pval", "others.padj", "others.log2FC")]
+
+# Apply the function to extract the desired columns
+result <- split_and_extract(Glia_SepDEGs, columns_to_split, patterns)
+colnames(result) <- gsub("others.", "", colnames(result))
+result$cluster2 <- ""
+result$cluster2[which(result$cluster == "(6) E Glia|SCP")] <- "(11) PN Sustentacular"
+result$cluster2[which(result$cluster == "(11) PN Sustentacular")] <- "(6) E Glia|SCP"
+
+colnames(result)[2] <- "cluster1"
+result <- result[,c(1,2,8,3:7)]
+# View the result
+# Create the volcano plot
+result2 <- result
+result2$log2FC[which(result2$cluster1 == "(6) E Glia|SCP")] <- -result2$log2FC[which(result2$cluster1 == "(6) E Glia|SCP")]
+head(result2, 20)
+```
+
+```{r }
+Glia_DEGs_M <- Glia_DEGs[which(Glia_DEGs$p_val_adj != 1),]
+colnames(Glia_DEGs_M) <- c("pval", "log2FC", "pct.1", "pct.2", "padj")
+Glia_DEGs_M$gene <- rownames(Glia_DEGs_M)
+Glia_DEGs_M$cluster1 <- "(11) PN Sustentacular"
+Glia_DEGs_M$cluster2 <- "(6) E Glia|SCP"
+Glia_DEGs_M <- Glia_DEGs_M[,colnames(result2)]
+Glia_DEGs_M <- Glia_DEGs_M[-which(Glia_DEGs_M$gene %in% result2$gene),]
+Glia_DEGs_M$DEG_Type <- "Non-Specific"
+head(Glia_DEGs_M)
+```
+
+```{r fig.width=10, fig.height=10, warning=FALSE}
+result2$DEG_Type <- "(6) E Glia|SCP"
+result2$DEG_Type[which(result2$cluster1 == "(11) PN Sustentacular")] <- "(11) PN Sustentacular"
+Glia_DEGs_Combined <- rbind(Glia_DEGs_M, result2)
+Glia_DEGs_Combined$DEG_Type <- factor(Glia_DEGs_Combined$DEG_Type, levels = c("(11) PN Sustentacular", "(6) E Glia|SCP", "Non-Specific"))
+
+# Create the volcano plot
+p <- ggplot(Glia_DEGs_Combined, aes(x = log2FC, y = -log10(padj), color = DEG_Type)) + geom_point(alpha = 0.8, aes(size = ifelse(grepl("Glia-Specific", DEG_Type), 0.5, 0.2)), shape = 16) + 
+  scale_color_manual(values = c("#01BBE1", "#3DB54A", "grey88")) + theme_minimal() + labs(title = "Volcano Plot", x = "log2 Fold Change", y = "-log10 Adjusted p-value") + 
+  theme(legend.position = c(0.9, 0.92), plot.title = element_text(hjust = 0.5), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(color = "black"), 
+        axis.ticks = element_line(color = "black"), legend.text = element_text(face="bold",colour = "black", size = 10), panel.border = element_rect(color = "black", fill = NA)) +
+  geom_vline(xintercept = c(-0.5, 0.5), linetype = "dashed", color = "black") + geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
+  geom_text_repel(data = result2[result2$gene %in% Genes2Show,], mapping = aes(x = log2FC, y = -log10(padj), color = DEG_Type, label = gene, size = 3), 
+                  max.overlaps = Inf, show.legend = FALSE, fontface = "bold.italic") + 
+  theme(strip.text.x = element_text(angle=0, face="bold",size = 15), strip.text.y=element_text(angle=90,face="bold",size = 30), title = element_text(face="bold",colour = "black", size = 12)) +
+  theme(axis.text.x = element_text(face = "bold",colour = "black", angle = 0, hjust = 1, size = 10), axis.text.y = element_text(face="bold",colour = "black", size = 10)) + 
+  guides(size = "none", color = guide_legend(override.aes = list(size = 4)))
+p
+```
+
+## Figure 5 D
+```{r fig.width=13, fig.height=4, warning=FALSE}
+color.heatmap <- "viridis"
+color.use <- tryCatch({
+  RColorBrewer::brewer.pal(n = 5, name = color.heatmap)
+}, error = function(e) {
+  (scales::viridis_pal(option = color.heatmap, direction = -1))(5)
+})
+
+MedullaCellAnnoOrder <- c("(6) E Glia|SCP", "(11) PN Sustentacular", "(10) E Neuroblast", "(8) Cycling TH+", "(0) E ADR Chromaffin", "(5) E NOR Chromaffin", "(2) PN ADR Chromaffin", "(1) PN NOR Chromaffin")
+SpeDEG_Dotplot <- MyDotPlots(WT_Mouse_Medulla, result2[result2$gene %in% Genes2Show,],GeneCol = 'gene',Assay = "RNA", CelltypeCol = 'cluster1', Return = T,Draw = F, Group = "NewCelltype", CellTypeOrder = MedullaCellAnnoOrder, scale = F) +
+  theme(panel.background = element_blank(), plot.background = element_blank())
+SpeDEG_Dotplot <- SpeDEG_Dotplot + scale_color_gradientn(colors = color.use, oob = scales::squish)
+
+SpeDEG_Dotplot
+```
+
+## Figure 5 E
+```{r fig.width=18, fig.height=7}
+WT_Mouse_SCPs <- subset(WT_Mouse, NewCelltype %in% c("(6) E Glia|SCP", "(11) PN Sustentacular"))
+
+Genes = rev(c("Hey2", "Wnt6", "Col28a1", "Notch1","Ndrg1","Sfrp5",
+              "Moxd1", "Sox5", "Gpr17", "Lmo4","Ngfr","Mpz",
+              "Serpine2","Fabp7","Erbb3","Plp1","Sox2","Sox10"))
+plot_list2 <- list()
+for (g in Genes) {
+  plot_list2[[g]] <- FeaturePlot(WT_Mouse_SCPs, features = g, order = T, alpha = 0.8, pt.size = 0.5, slot = "scale.data") + 
+    theme(line = element_blank(), axis.text = element_blank(), axis.title = element_blank(), legend.position = "inside", legend.position.inside = c(0.1,0.7), plot.title = element_text(face = "bold.italic")) + 
+    scale_color_gradientn(colors = c("dodgerblue", "grey90", "red"))
+}
+print(wrap_plots(plot_list2, ncol = 6) + theme(text = element_text(family = "Arial")))
+```
+
+## Figure 5 F
+```{r fig.width=20, fig.height=12}
+OutDir <- "./DEG_GO/"
+Whole_E_Glia_GO <- ComputeGO(GeneList = WT_Mouse_SpeDEGs$gene[which(WT_Mouse_SpeDEGs$cluster == "(6) E Glia|SCP")], ShowFigure = T, PlotFigure = T, SaveAsTable = T, FileName = "Whole_E_Glia_Enriched",
+                             TopGO = 20, OrgDb = "Mouse",fromType = 'SYMBOL', toType = 'ENTREZID', Path = OutDir)
+
+Whole_PN_Glia_GO <- ComputeGO(GeneList = WT_Mouse_SpeDEGs$gene[which(WT_Mouse_SpeDEGs$cluster == "(11) PN Sustentacular")], ShowFigure = T, PlotFigure = T, SaveAsTable = T, FileName = "Whole_PN_Glia_Enriched",
+                              TopGO = 20, OrgDb = "Mouse",fromType = 'SYMBOL', toType = 'ENTREZID', Path = OutDir)
+
+E17_Glia_GO <- read.table(paste0(OutDir,"Whole_E_Glia_Enriched_GO_Sig.tsv"), header = T, sep = "\t")
+PN_Glia_GO <- read.table(paste0(OutDir,"Whole_PN_Glia_Enriched_GO_Sig.tsv"), header = T, sep = "\t")
+
+PN_Glia_GO_Spe <- PN_Glia_GO[-which(PN_Glia_GO$ID %in% E17_Glia_GO$ID),]
+
+P_PNGlia_PathwayGO <- Bubble_Plot(pathway = PN_Glia_GO_Spe[grep("signaling", PN_Glia_GO_Spe$Description),][1:25,], "PN Glia Cell All Pathways")
+P_PNGlia_PathwayGO + theme(text = element_text(family = "Arial"))
+```
+
+## Figure 5 G
+```{r fig.width=5, fig.height=5, warning=FALSE}
+ucols_subset <- ucols[levels(CellChat_P90@idents)]
+netVisual_individual(CellChat_P90, signaling = "NOTCH", pairLR.use = "DLK1_NOTCH1", layout = "circle", color.use = ucols_subset)
+```
+## Figure 5 H
+```{r fig.width=5, fig.height=5, warning=FALSE}
+ucols_subset <- ucols[levels(CellChat_AgedAdult@idents)]
+netVisual_individual(CellChat_AgedAdult, signaling = "NOTCH", pairLR.use = "DLK1_NOTCH1", layout = "circle", color.use = ucols_subset)
+```
+
+## Figure 5 I
+```{r fig.width=12, fig.height=4}
+gg <- netVisual_bubble(object = cellChat_Merged, sources.use = c(1:3), targets.use = c(1:3),  comparison = c(1, 2, 3, 4, 5), angle.x = 90, signaling = c("WNT", "NOTCH"), return.data = T)
+SelectedCommunicationDF <- gg$communication
+
+SelectedCommunicationDF_Modified <- SelectedCommunicationDF[grep("Wnt",SelectedCommunicationDF$interaction_name_2, invert = T),]
+WNT_df <- SelectedCommunicationDF[grep("Wnt", SelectedCommunicationDF$interaction_name_2),]
+
+WNT_df_Modified <- WNT_df %>% na.omit() %>% group_by(source.target, ligand) %>% reframe(
+    prob = sum(prob, na.rm = TRUE),
+    prob.original = sum(prob.original, na.rm = TRUE),
+    pval = round(mean(pval, na.rm = TRUE)),
+    interaction_name = paste(ligand, "- All Activated Receptors"),
+    interaction_name_2 = paste(ligand, "- All Activated Receptors"),
+    receptor = "All Activated Receptors",
+    across(-c(prob, prob.original, pval, interaction_name, interaction_name_2), dplyr::first)) %>% ungroup()
+
+WNT_df_Modified <- WNT_df_Modified[,colnames(SelectedCommunicationDF)]
+
+SelectedCommunicationDF_Modified <- rbind(SelectedCommunicationDF_Modified, WNT_df_Modified)
+```
+
+
+```{r fig.width=5.7, fig.height=3.6}
+g <- Figure5I_Quick(CellChatObj = cellChat_Merged, CommunicationDF = SelectedCommunicationDF_Modified)
+g + theme(text = element_text(family = "Arial"))
+```
+
+
+## Figure 5 J
+```{r fig.width=12, fig.height=4}
+Notch_Genes <- read.table("./Notch_Genes.csv", header = T, sep=",")
+Notch_Genes$Gene <- DescTools::StrCap(Notch_Genes$Gene, method = "title")
+MyDotPlots(WT_Mouse_Medulla, Notch_Genes[which(Notch_Genes$Fine_Type != "Diff"),],GeneCol = 'Gene', Assay = "RNA", scale = F, CelltypeCol = 'Fine_Type',Return = T,Draw = F, Group = "NewCelltype", CellTypeOrder = MedullaCellAnnoOrder) +
+  theme(panel.background = element_blank(), plot.background = element_blank()) + scale_color_gradientn(colors = color.use, oob = scales::squish)
+```
+
+
+
+## Sup Figure 5 A - C
+```{r fig.width=18, fig.height=6}
+tmp1 <- DimPlot(WT_Mouse, group.by=c("samples"), reduction = 'umap', label = F) + theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), axis.line = element_blank()) + guides(color = guide_legend(ncol = 1))
+tmp2 <- DimPlot(WT_Mouse, group.by=c("DetailedAge"), reduction = 'umap', label = F) + theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), axis.line = element_blank())
+tmp3 <- DimPlot(WT_Mouse, group.by=c("seurat_clusters"), reduction = 'umap', label = T, repel = T) + theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), axis.line = element_blank()) + NoLegend()
+tmp1 + tmp2 + tmp3
+```
+
+## Sup Figure 5 D
+```{r fig.width=30, fig.height=7}
+MyMarkers <- read.table("./Mouse_AdrenalGland_Markers.txt", header = T, sep="\t")
+MyMarkers$Markers <- DescTools::StrCap(MyMarkers$Markers, method = "title")
+MyDotPlots(WT_Mouse, MyMarkers,GeneCol = 'Markers',Assay = "RNA", CelltypeCol = 'Celltype',Return = T,Draw = F, ClusterIdents = F,
+                      CellTypeOrder = c("6","11","10","8","0","2","1","5","18","7","14","12","9","3","4","13","16","15","19","17"), scale = F) +
+  theme(panel.background = element_blank(), plot.background = element_blank(), axis.text.x = element_text(vjust = 0.5, face = "italic"), axis.text.y = element_text(face = "plain"))
+```
+
+## Sup Figure 5 E
+```{r fig.width=8, fig.height=4, warning=FALSE}
+ucols_subset <- ucols[levels(CellChat_AgedAdult@idents)]
+netAnalysis_signalingRole_network(CellChat_AgedAdult, signaling = "NOTCH", width = 10, height = 3, font.size = 10, color.use = ucols_subset)
+```
+
+## Sup Figure 5 F
+```{r fig.width=8, fig.height=4, warning=FALSE}
+ucols_subset <- ucols[levels(CellChat_AgedAdult@idents)]
+netAnalysis_signalingRole_network(CellChat_AgedAdult, signaling = "WNT", width = 10, height = 3, font.size = 10, color.use = ucols_subset)
+```
+
+## Sup Figure 5 G
+```{r fig.width=8, fig.height=4, warning=FALSE}
+ucols_subset <- ucols[levels(CellChat_AgedAdult@idents)]
+netAnalysis_signalingRole_network(CellChat_AgedAdult, signaling = "BMP", width = 10, height = 3, font.size = 10, color.use = ucols_subset)
+```
+
+## Sup Figure 5 H
+```{r fig.width=5, fig.height=5, warning=FALSE}
+layout(matrix(1:5, nrow = 1, byrow = TRUE))
+
+ucols_subset <- ucols[levels(CellChat_E17@idents)]
+p1 <- netVisual_individual(CellChat_E17, signaling = "NOTCH", pairLR.use = "DLK1_NOTCH1", layout = "circle", color.use = ucols_subset)
+ucols_subset <- ucols[levels(CellChat_P5@idents)]
+p2 <- netVisual_individual(CellChat_P5, signaling = "NOTCH", pairLR.use = "DLK1_NOTCH1", layout = "circle", color.use = ucols_subset)
+ucols_subset <- ucols[levels(CellChat_P14@idents)]
+p3 <- netVisual_individual(CellChat_P14, signaling = "NOTCH", pairLR.use = "DLK1_NOTCH1", layout = "circle", color.use = ucols_subset)
+ucols_subset <- ucols[levels(CellChat_P90@idents)]
+p4 <- netVisual_individual(CellChat_P90, signaling = "NOTCH", pairLR.use = "DLK1_NOTCH1", layout = "circle", color.use = ucols_subset)
+ucols_subset <- ucols[levels(CellChat_AgedAdult@idents)]
+p5 <- netVisual_individual(CellChat_AgedAdult, signaling = "NOTCH", pairLR.use = "DLK1_NOTCH1", layout = "circle", color.use = ucols_subset)
+```
+
+## Sup Figure 5 I
+```{r fig.width=24, fig.height=6, warning=FALSE}
+layout(matrix(1:4, nrow = 1, byrow = TRUE))
+
+ucols_subset <- ucols[levels(CellChat_P5_WNT@idents)]
+netVisual_aggregate(CellChat_P5_WNT, signaling = "WNT", layout = "circle", color.use = ucols_subset) 
+ucols_subset <- ucols[levels(CellChat_P14_WNT@idents)]
+netVisual_aggregate(CellChat_P14_WNT, signaling = "WNT", layout = "circle", color.use = ucols_subset) 
+ucols_subset <- ucols[levels(CellChat_P90_WNT@idents)]
+netVisual_aggregate(CellChat_P90_WNT, signaling = "WNT", layout = "circle", color.use = ucols_subset) 
+ucols_subset <- ucols[levels(CellChat_AgedAdult_WNT@idents)]
+netVisual_aggregate(CellChat_AgedAdult_WNT, signaling = "WNT", layout = "circle", color.use = ucols_subset) 
+```
+
+
+## Session Information
+```{r }
+sessionInfo()
+```
+
