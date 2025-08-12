@@ -30,17 +30,17 @@ library("RaceID")
 library("RColorBrewer")
 library("SeuratWrappers")
 #-----------------------------------#
-if(FALSE){
-	cat("READING PASSED VARIABLES\n")
-	args <-commandArgs(trailingOnly=TRUE)
-	for(i in 1:length(args)){
-	        assign(paste("args",i,sep=""),eval(parse(text=args[i])))
-	        cat(paste("args",i,sep=""),":\n")
-	        str(eval(parse(text=paste("args",i,sep=""))))
-	}
-	cat("Done",Sys.time(),"-----------------\n")
+cat("READING PASSED VARIABLES\n")
+args <-commandArgs(trailingOnly=TRUE)
+for(i in 1:length(args)){
+	assign(paste("args",i,sep=""),eval(parse(text=args[i])))
+	cat(paste("args",i,sep=""),":\n")
+	str(eval(parse(text=paste("args",i,sep=""))))
 }
+cat("Done",Sys.time(),"-----------------\n")
+
 cat("input data\n")
+# args1: path to RDS file with SeuratObject without QC
 query=readRDS(args1)
 #-----------------------------------------#
 
@@ -91,15 +91,14 @@ query = CellCycleScoring(query, s.features = m.s.genes, g2m.features = m.g2m.gen
 
 #-----------------------------------------#
 # Fit model
-if(toupper(args4) == "NO") {
-	query = NormalizeData(query, normalization.method = "LogNormalize", scale.factor = 10000) %>%
-		FindVariableFeatures(., selection.method = "vst", nfeatures = 2500) %>%
-		ScaleData(., features = rownames(.),vars.to.regress = args5) %>%
-		RunPCA(., features = VariableFeatures(object = .)) %>% 
-		FindNeighbors(., dims = 1:40,k.param=20) %>%
-		FindClusters(., resolution = 0.6, n.iter=100) %>%
-		RunUMAP(.,dims=1:40)
-}
+query = NormalizeData(query, normalization.method = "LogNormalize", scale.factor = 10000) %>%
+	FindVariableFeatures(., selection.method = "vst", nfeatures = 2500) %>%
+	ScaleData(., features = rownames(.),vars.to.regress = args5) %>%
+	RunPCA(., features = VariableFeatures(object = .)) %>% 
+	FindNeighbors(., dims = 1:40,k.param=20) %>%
+	FindClusters(., resolution = 0.6, n.iter=100) %>%
+	RunUMAP(.,dims=1:40)
+
 
 # Format for cellxgene
 i <- query@meta.data %>% sapply(., is.factor)
@@ -107,6 +106,7 @@ query@meta.data[i] <- lapply(query@meta.data[i], as.character)
 
 #-----------------------------------#
 #outnm="/crex2/proj/sllstore2017016/Paper2024_mmWT/output-d/"
+args3=outnm
 save.image(paste(args3,".RData",sep=""))
 saveRDS(object=query,file=paste(args3,".RDS",sep=""))
 
