@@ -45,16 +45,6 @@ query=readRDS(args1)
 #-----------------------------------------#
 
 # Housekeep
-
-# Do we need to filter out any cells? Provide meta.data field and values to keep
-## otherwise "no"
-## it only accepts one field. Look at my other script for an expanded version 
-
-if(toupper(args2)!="NO"){
-	idx=query@meta.data %>% filter(!!as.name(names(args2))%in%args2[[paste(names(args2))]]) %>% rownames()
-	query=query[,idx]	 
-}
-
 # Remove spike ins
 idx=grep(x=rownames(query),pattern="^ERCC")
 if(length(idx)>0) query=query[-idx,]
@@ -75,9 +65,6 @@ if(length(idx)>0) { query = query %>% .[,!colnames(.)%in%idx] }
 idx=rownames(query)[which(rowSums(query[["RNA"]]@counts)<3)]
 
 if(length(idx)>0) { query=query[!rownames(query)%in%idx,] }
-
-# Remove ERCC
-
 
 # Cell cycle scoring
 # A list of cell cycle markers, from Tirosh et al, 2015. There is an updated list -- cc.genes.updated.2019 -- but Oscar used the old one
