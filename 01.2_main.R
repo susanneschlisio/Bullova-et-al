@@ -30,15 +30,16 @@ library("RaceID")
 library("RColorBrewer")
 library("SeuratWrappers")
 #-----------------------------------#
-cat("READING PASSED VARIABLES\n")
-args <-commandArgs(trailingOnly=TRUE)
-for(i in 1:length(args)){
-        assign(paste("args",i,sep=""),eval(parse(text=args[i])))
-        cat(paste("args",i,sep=""),":\n")
-        str(eval(parse(text=paste("args",i,sep=""))))
+if(FALSE){
+	cat("READING PASSED VARIABLES\n")
+	args <-commandArgs(trailingOnly=TRUE)
+	for(i in 1:length(args)){
+	        assign(paste("args",i,sep=""),eval(parse(text=args[i])))
+	        cat(paste("args",i,sep=""),":\n")
+	        str(eval(parse(text=paste("args",i,sep=""))))
+	}
+	cat("Done",Sys.time(),"-----------------\n")
 }
-cat("Done",Sys.time(),"-----------------\n")
-
 cat("input data\n")
 query=readRDS(args1)
 #-----------------------------------------#
