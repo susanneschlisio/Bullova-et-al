@@ -100,16 +100,6 @@ if(toupper(args4) == "NO") {
 		FindClusters(., resolution = 0.6, n.iter=100) %>%
 		RunUMAP(.,dims=1:40)
 }
-if(toupper(args4) == "YES") {
-	query = NormalizeData(query, normalization.method = "LogNormalize", scale.factor = 10000) %>%
-		FindVariableFeatures(., selection.method = "vst", nfeatures = 2500) %>%
-		.@assays$RNA@scale.data <- as.matrix(0) %>%
-		RunFastMNN(object.list = SplitObject(., split.by = args5))
-		RunPCA(., features = VariableFeatures(object = .)) %>% 
-		FindNeighbors(., dims = 1:40,k.param=20, reduction="mnn") %>%
-		FindClusters(., resolution = 0.6, n.iter=100) %>%
-		RunUMAP(.,dims=1:40, reduction="mnn")	
-}
 
 # Format for cellxgene
 i <- query@meta.data %>% sapply(., is.factor)
