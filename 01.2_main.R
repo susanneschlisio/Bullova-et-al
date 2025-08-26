@@ -2,20 +2,14 @@
 # (Maria) script to identify Sox2+/Sox10+ and its variations from mice SS2 data
 # Input is an RDS with a seurat object
 # QC performed following Oscars pipeline:
-# samples processed independently in age batches: 1) E17  2) PN or together, depending on args2
+# samples processed independently in age batches: 1) E17  2) PN or together
 # QC: keep cells with < 10% mitochondrial genes, 200 < number_of_genes < 10000
 # exclude genes expressed in fewer than 3 cells
 # PN_n_cells aprox 6274
 # E17 n_cells aprox 4166
 # regress total read counts and mitochondrial content
 # cell cycle regressed using Tirosh et. al 2016 gene signature
-# Model HAS TO HAVE some vars.to.regress or batch variables
-# 10 nearest neighbors
-# 40 PC
 # clustering method Louvain
-# normalized expression: log(counts_per_10000 +1) used to get DEGs
-# DEGs significance Welch's BH correction with FDR threshold = 0-01
-
 #-------------------------------------------------------------------------#
 rm(list=ls())
 set.seed(1234)
@@ -30,13 +24,14 @@ library("RaceID")
 library("RColorBrewer")
 library("SeuratWrappers")
 #-----------------------------------#
-cat("READING PASSED VARIABLES\n")
-args <-commandArgs(trailingOnly=TRUE)
-for(i in 1:length(args)){
-	assign(paste("args",i,sep=""),eval(parse(text=args[i])))
-	cat(paste("args",i,sep=""),":\n")
-	str(eval(parse(text=paste("args",i,sep=""))))
-}
+
+# seurat object with counts in RDS format
+# args1="./data-d/allMouse_WT_expnd_Kif1bW2r_nWyLate_eDup.ctns.RDS"
+# suffix in output filenames
+args3="01.2_main_E17andPN_WT"
+# variables to regress out
+args5=c("S.Score","G2M.Score","percent.mito","nCount_RNA")
+
 cat("Done",Sys.time(),"-----------------\n")
 
 cat("input data\n")
